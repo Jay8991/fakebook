@@ -1,0 +1,7 @@
+# will ignore these files when commiting to git 
+
+virtualenv
+.venv
+.env
+.virtualenv
+__pycache__
