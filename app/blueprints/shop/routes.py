@@ -1,8 +1,9 @@
+import re
 from stripe.api_resources import line_item, product
 from werkzeug.local import F
 from werkzeug.utils import redirect
 from .import bp as shop
-from flask import render_template, redirect, url_for, flash, current_app as app
+from flask import render_template, redirect, url_for, flash, request, current_app as app
 from .models import Product, Cart
 import stripe
 from flask_login import current_user
@@ -29,12 +30,18 @@ def add_product(id):
     cart_item = Cart(product_key=id, user_id=current_user.get_id(), quantity=1)
     db.session.add(cart_item)
     db.session.commit()
-
-@shop.route('/cart')
+    
+@shop.route('/cart', methods=['GET','POST'])
 def cart():
     stripe.api_key = app.config.get('STRIPE_TEST_SK')
     cart_items = []
     for i in Cart.query.filter_by(user_id=current_user.get_id()).all():
+        if request.method == 'POST':
+            # get the updated quantity and compare if different then change it if it is then commit
+            qty = request.form['Qty']
+            if not i.quantity == qty:
+                i.quantity = qty
+                db.session.commit()
         stripe_product = stripe.Product.retrieve(i.product_key)
         product_dict = {
             'product' : stripe_product,
@@ -45,6 +52,7 @@ def cart():
     subtotal = cart_items[0]['price'] * cart_items[0]['quantity']
     tax = "{:.2f}".format(subtotal * 0.1025)
     grand_total = subtotal + float(tax)
+
     context = {
         'cart' : cart_items,
         # I'M SURE THERE IS A BETTER WAY TO DO THIS, IT'S 2:00AM AND I CAN'T FIGURE IT OUT
