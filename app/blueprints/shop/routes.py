@@ -114,14 +114,27 @@ def create_checkout_session():
         }
         items.append(product_dict)
 
+
     try:
         checkout_session = stripe.checkout.Session.create(
             line_items=items,
             mode='payment',
-            success_url='http://localhost:5000/',
-            cancel_url='http://localhost:5000/'
+            success_url='http://localhost:5000' + '/shop/success',
+            cancel_url='http://localhost:5000' + '/shop/cancel'
 
         )
     except Exception as error:
         return str(error)
     return redirect(checkout_session.url, code=303)
+
+@shop.route('/success', methods=['GET','POST'])
+def success():
+    # delete or clear that user's cart from db
+    user_cart = Cart.query.filter_by(user_id=current_user.get_id()).one()
+    db.session.delete(user_cart)
+    db.session.commit()
+    return render_template('success.html')
+
+@shop.route('/cancel')
+def canceled():
+    return render_template('cancel.html')
