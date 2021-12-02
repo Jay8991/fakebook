@@ -5,9 +5,9 @@ import os
 
 # specify the file location for the current directory
 basedir = os.path.abspath(os.path.dirname(__name__))
+
 # load the environmental variables from the .env file
 load_dotenv(os.path.join(basedir, '.env'))
-
 
 class Config:
     FLASK_APP = os.getenv('FLASK_APP')
@@ -16,3 +16,5 @@ class Config:
         SQLALCHEMY_DATABASE_URI = os.getenv('SQLALCHEMY_DATABASE_URI').replace('postgres', 'postgresql')
     SQLALCHEMY_TRACK_MODIFICATIONS = os.getenv('SQLALCHEMY_TRACK_MODIFICATIONS')
     SECRET_KEY=os.getenv('SECRET_KEY')
+    STRIPE_TEST_PK = os.getenv('STRIPE_TEST_PK')
+    STRIPE_TEST_SK = os.getenv('STRIPE_TEST_SK')
