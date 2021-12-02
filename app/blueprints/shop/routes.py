@@ -1,5 +1,7 @@
+from operator import delitem
 import re
 from stripe.api_resources import line_item, product
+from stripe.api_resources.card import Card
 from werkzeug.local import F
 from werkzeug.utils import redirect
 from .import bp as shop
@@ -30,28 +32,48 @@ def add_product(id):
     cart_item = Cart(product_key=id, user_id=current_user.get_id(), quantity=1)
     db.session.add(cart_item)
     db.session.commit()
-    
+    return redirect(url_for('shop.index'))
+
 @shop.route('/cart', methods=['GET','POST'])
 def cart():
     stripe.api_key = app.config.get('STRIPE_TEST_SK')
+    
     cart_items = []
     for i in Cart.query.filter_by(user_id=current_user.get_id()).all():
+        stripe_product = stripe.Product.retrieve(i.product_key)
+        
         if request.method == 'POST':
             # get the updated quantity and compare if different then change it if it is then commit
-            qty = request.form['Qty']
+            qty = request.form.get('Qty')
             if not i.quantity == qty:
                 i.quantity = qty
                 db.session.commit()
-        stripe_product = stripe.Product.retrieve(i.product_key)
+
+            product_delete = request.form.get('product_name')
+            if product_delete == stripe_product['name']:
+                user_cart = Cart.query.filter_by(user_id=current_user.get_id()).one()
+                db.session.delete(user_cart)
+                db.session.commit()
+                
+                # returning clears it right away, before it took two reloads to clear why????
+                return redirect(url_for('shop.cart'))
+
         product_dict = {
             'product' : stripe_product,
             'price' : float(stripe.Price.retrieve(stripe_product['metadata']['price_id'])['unit_amount']) / 100,
-            'quantity' : i.quantity
+            'quantity' : i.quantity,
         }
         cart_items.append(product_dict)
-    subtotal = cart_items[0]['price'] * cart_items[0]['quantity']
-    tax = "{:.2f}".format(subtotal * 0.1025)
-    grand_total = subtotal + float(tax)
+
+    # if cart empty 
+    if cart_items == []:
+        subtotal = '-'
+        tax = '-'
+        grand_total = 0.00
+    else:
+        subtotal = float("{:.2f}".format(cart_items[0]['price'] * cart_items[0]['quantity']))
+        tax = "{:.2f}".format(subtotal * 0.1025)
+        grand_total = subtotal + float(tax)
 
     context = {
         'cart' : cart_items,
