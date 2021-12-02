@@ -1,4 +1,5 @@
 from stripe.api_resources import line_item, product
+from werkzeug.local import F
 from werkzeug.utils import redirect
 from .import bp as shop
 from flask import render_template, redirect, url_for, flash, current_app as app
@@ -41,14 +42,30 @@ def cart():
             'quantity' : i.quantity
         }
         cart_items.append(product_dict)
+    subtotal = cart_items[0]['price'] * cart_items[0]['quantity']
+    tax = "{:.2f}".format(subtotal * 0.1025)
+    grand_total = subtotal + float(tax)
     context = {
-        'cart' : cart_items
+        'cart' : cart_items,
+        # I'M SURE THERE IS A BETTER WAY TO DO THIS, IT'S 2:00AM AND I CAN'T FIGURE IT OUT
+        'subtotal' : subtotal,
+        'tax' : tax,
+        'grand_total' : "{:.2f}".format(grand_total)
     }
     return render_template('shop/cart.html', **context)
 
 @shop.route('/checkout', methods=['POST'])
 def create_checkout_session():
     stripe.api_key = app.config.get('STRIPE_TEST_SK')
+    # stripe.TaxRate.create(
+    #     display_name = "Sales Tax",
+    #     inclusive = False,
+    #     percentage = 10.25,
+    #     country = "US",
+    #     state = "IL",
+    #     jurisdiction = "US - CA",
+    #     description = "IL Sales Tax",
+    # )
     items = [
         # {
         #     # Provide the exact Price ID (e.g. pr_1234) of the product you want to sell
@@ -61,7 +78,9 @@ def create_checkout_session():
         stripe_product = stripe.Product.retrieve(i.product_key)
         product_dict = {
             'price' : stripe.Price.retrieve(stripe_product['metadata']['price_id']),
-            'quantity' : i.quantity
+            'quantity' : i.quantity,
+            # ADD IN TAX RATES TO INCLUDE THEM IN THE CHECKOUT
+            'tax_rates' : ['txr_1K29hfIGBbvkCxLnspO7tAFV']
         }
         items.append(product_dict)
 
